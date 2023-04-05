@@ -40,7 +40,7 @@ def reform_parquet(reform_cols, bucket_name, location):
 
 
 
-def export_table_wrapper(client,source_id,dataset_id, table_id,bucket_name):
+def export_table_wrapper(client,source_id,dataset_id, table_id,bucket_name, partitions):
   full_id=source_id+"."+dataset_id+"."+table_id
   table=client.get_table(full_id)
   reform_cols = []
@@ -53,16 +53,21 @@ def export_table_wrapper(client,source_id,dataset_id, table_id,bucket_name):
 
 
   destination_uri=""
-  if table.num_bytes<pow(10,9):
+  if (table.num_bytes<pow(10,9)) and (partitions<=1):
     try:
       destination_uri="gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id + "/" + table_id + ".parquet")
       export_table(client,source_id,dataset_id, table_id,destination_uri)
     except:
       destination_uri="gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id + "/" + table_id + "_*" + ".parquet")
       export_table(client, source_id, dataset_id, table_id, destination_uri)
-  else:
 
-    destination_uri = "gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id + "_3/" + table_id + "_0_" +".parquet")
+  elif (partitions >1):
+    dest_uris=[]
+    for part in range(partitions):
+      dest_uris.append("gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id + "/" + table_id + "_"+str(part)+"_*"+".parquet"))
+    export_table(client, source_id, dataset_id, table_id, dest_uris)
+  else:
+    destination_uri = "gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id + "/" + table_id + "_*"+".parquet")
     export_table(client, source_id, dataset_id, table_id, destination_uri)
   if len(reform_cols)>0:
     jj=1
@@ -90,7 +95,7 @@ def export_table(client,source_id,dataset_id, table_id,destination_uri):
 
 def export_partition_job(client, job_config,dataset_ref,dataset_id,table_id, part_no, bucket_name):
 
-  destination_uri = "gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id + "_comp" +"/" + table_id + "_" + str(part_no) +".parquet")
+  destination_uri = "gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id  +"/" + table_id + "_" + str(part_no) +".parquet")
   part_id=table_id+"$"+str(part_no)
   part_ref = dataset_ref.table(part_id)
   #print("starting")
@@ -121,7 +126,7 @@ def export_partitions(client,source_id,dataset_id, table_id,bucket_name):
   dataset_ref = bigquery.DatasetReference(source_id, dataset_id)
   job_config = bigquery.job.ExtractJobConfig()
   job_config.destination_format = "PARQUET"
-  job_config.compression = bigquery.Compression.GZIP
+  #job_config.compression = bigquery.Compression.GZIP
   jobs=[]
   threads=[]
   results=[]
@@ -147,10 +152,10 @@ if __name__=='__main__':
   alt_source_id='idc-dev-etl'
   dataset_id = 'idc_'+IDC_VERSION
   dataset_clinical_id = 'idc_'+IDC_VERSION+'_clinical'
-  alt_id='gw_temp'
+  alt_id='idc_v14_dev'
   table_id = 'dicom_all'
   bucket_name='idc-open-metadata'
-
+  #export_table_wrapper(client, source_id, dataset_id, table_id, bucket_name)
 
   #destination_uri="gs://{}/{}".format(bucket_name, dataset_id+"/"+table_id+"/"+table_id+"*")
   #credentials, project_id = google.auth.default()
@@ -160,7 +165,12 @@ if __name__=='__main__':
     storage_credentials = service_account.Credentials.from_service_account_info(info)
     client = bigquery.Client(credentials=storage_credentials, project=project_id)
     gcs_client = storage.Client(credentials=storage_credentials, project=project_id)
-    export_partitions(client, alt_source_id, alt_id, "dicom_all_refactor_partition2", bucket_name)
+    #export_table_wrapper(client, alt_source_id, alt_id, "uuid_url_map_from_view_cr", bucket_name,1)
+    export_partitions(client, alt_source_id, alt_id, "uuid_url_map_from_view_two", bucket_name)
+    #export_table_wrapper(client, alt_source_id, alt_id, "uuid_url_map_from_view_two", bucket_name,6)
+    #export_table_wrapper(client, alt_source_id, alt_id, "uuid_url_map_from_view_pub", bucket_name,1)
+    #export_partitions(client, alt_source_id, alt_id, "dicom_all_refactor_partition2", bucket_name)
+
 
     '''for dsource in [(alt_source_id, alt_id)]:
       source_id=dsource[0]

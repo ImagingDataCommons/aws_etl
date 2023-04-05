@@ -12,7 +12,7 @@ google_key_file="../secure_files/canceridc-data_key.csv"
 region='us-east-1'
 my_IPV4 = 'YOUR LOCAL IPV4 HERE'
 my_IPV4 = '73.11.192.177'
-ami_id = 'ami-0813c27c731689436'
+ami_id = 'ami-053d95924a7903173'
 instance_type = 'm5.4xlarge'
 role_arn = 'arn:aws:iam::266665233841:role/George_DataSync_Role_Block1'
 ec2_key_name='dataSyncEastEc2'
@@ -315,9 +315,9 @@ if __name__=="__main__":
   #amiList = ec2_client.describe_images(Filters=filters, Owners=['amazon'])['Images']
 
   #createVPC(ec2_resource,ec2_client,cidr_block, my_IPV4, service_name, vpc_name)
-  #createDataSyncEc2(ec2_client, ec2_resource, ami_id, instance_type, ec2_key_name)
-  #agent_arn = createAgent(ec2_client, ds_client, region)
-  agent_arn='arn:aws:datasync:us-east-1:266665233841:agent/agent-0091ea5f5c0cf0978'
+  createDataSyncEc2(ec2_client, ec2_resource, ami_id, instance_type, ec2_key_name)
+  agent_arn = createAgent(ec2_client, ds_client, region)
+  #agent_arn='arn:aws:datasync:us-east-1:266665233841:agent/agent-0091ea5f5c0cf0978'
   for task in transfer_tasks:
 
     
