@@ -13,6 +13,8 @@ CRED_FILE='/Users/george/idc/secure_files/idc-dev-etl-8a571d5ad9a5.json'
 IDC_VERSION='v13'
 project_id = 'idc-dev-etl'
 
+part =[-1,500,1000,1500,2000,2500,3010]
+
 def reform_parquet(reform_cols, bucket_name, location):
   print('fixing table '+location)
   fs=gcsfs.GCSFileSystem(project=project_id, token=CRED_FILE)
@@ -95,7 +97,15 @@ def export_table(client,source_id,dataset_id, table_id,destination_uri):
 
 def export_partition_job(client, job_config,dataset_ref,dataset_id,table_id, part_no, bucket_name):
 
+
   destination_uri = "gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id  +"/" + table_id + "_" + str(part_no) +".parquet")
+  if (len(part))>0:
+    temp=part.copy()
+    temp.append(part_no)
+    temp.sort()
+    pos = temp.index(part_no)-1
+    destination_uri = "gs://{}/{}".format(bucket_name, dataset_id + "/" + table_id +"/"+str(pos) +"/" + table_id + "_" + str(part_no) + ".parquet")
+
   part_id=table_id+"$"+str(part_no)
   part_ref = dataset_ref.table(part_id)
   #print("starting")
@@ -166,7 +176,9 @@ if __name__=='__main__':
     client = bigquery.Client(credentials=storage_credentials, project=project_id)
     gcs_client = storage.Client(credentials=storage_credentials, project=project_id)
     #export_table_wrapper(client, alt_source_id, alt_id, "uuid_url_map_from_view_cr", bucket_name,1)
-    export_partitions(client, alt_source_id, alt_id, "uuid_url_map_from_view_two", bucket_name)
+    #export_partitions(client, alt_source_id, alt_id, "uuid_url_map_from_view_two", bucket_name)
+    #export_partitions(client, alt_source_id, alt_id, "uuid_url_map_from_view_cr", bucket_name)
+    export_partitions(client, alt_source_id, alt_id, "uuid_url_map_from_view_pub", bucket_name)
     #export_table_wrapper(client, alt_source_id, alt_id, "uuid_url_map_from_view_two", bucket_name,6)
     #export_table_wrapper(client, alt_source_id, alt_id, "uuid_url_map_from_view_pub", bucket_name,1)
     #export_partitions(client, alt_source_id, alt_id, "dicom_all_refactor_partition2", bucket_name)

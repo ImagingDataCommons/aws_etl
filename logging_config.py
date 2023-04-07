@@ -14,31 +14,35 @@
 # limitations under the License.
 #
 
-import os
+#import os
 import logging
 from logging import INFO, ERROR
-
 #import settings
 
 logging.basicConfig()
-
 rootlogger = logging.getLogger('root')
 rootlogger.setLevel(INFO)
+
+mainlogger = logging.getLogger('root.progress')
+mainlogger.setLevel(INFO)
+for hdlr in mainlogger.handlers[:]:
+    mainlogger.removeHandler(hdlr)
 
 progresslogger = logging.getLogger('root.progress')
 progresslogger.setLevel(INFO)
 for hdlr in progresslogger.handlers[:]:
     progresslogger.removeHandler(hdlr)
+
 #success_fh = logging.FileHandler('./logs/'+mv_image_files.img_s3_bucket+'_progress.log')
 #progresslogger.addHandler(success_fh)
 
 
 errlogger = logging.getLogger('root.err')
-errlogger.setLevel(ERROR)
+errlogger.setLevel(INFO)
 for hdlr in errlogger.handlers[:]:
     errlogger.removeHandler(hdlr)
 #err_fh = logging.FileHandler('{}/error.log'.format(settings.LOG_DIR))
 #err_fh = logging.FileHandler('./logs/'+mv_image_files.img_s3_bucket+'_error.log')
-errformatter = logging.Formatter('%(levelname)s:err:%(message)s')
+#errformatter = logging.Formatter('%(levelname)s:err:%(message)s')
 #errlogger.addHandler(err_fh)
 #err_fh.setFormatter(errformatter)
