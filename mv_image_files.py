@@ -19,9 +19,9 @@ access_key = key_data['Access key ID']
 secret_key = key_data['Secret access key']
 region='us-east-1'
 map_bucket='idc-open-data-metadata'
-map_folder='idc_v14_dev/uuid_url_map_from_view_two/'
-remap_folder='idc_v14_dev/uuid_url_newmap_two/'
-img_s3_bucket='idc-open-data-two'
+map_folder='idc_v14_dev/uuid_url_map_from_view_pub/0/'
+remap_folder='idc_v14_dev/uuid_url_newmap_pub/0/'
+img_s3_bucket='idc-open-data'
 img_folder=''
 
 #map_bucket='gw-new-test'
@@ -35,7 +35,7 @@ if (len(img_folder)>0):
   img_path=img_path+'/'+img_folder
 
 
-num_processes=14
+num_processes=16
 s3_client = boto3.client('s3', region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key)
 s3fs=s3fs.S3FileSystem(anon=False, key=access_key, secret=secret_key)
 

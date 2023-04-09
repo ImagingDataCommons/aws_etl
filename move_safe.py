@@ -81,12 +81,13 @@ def move_safe(s3_client,source_bucket, source_obj, destination_bucket,destinatio
       if (return_dic['destination_etag'] == return_dic['source_etag']):
         copy_ok = True
       else:
-        err.append("etag different after moving. Retaining original and deleting new")
+        err.append("etag different after moving. Retaining original and new")
         copy_ok = False
       if copy_ok:
         s3_client.delete_object(Bucket=source_bucket, Key=source_obj)
       else:
-        s3_client.delete_object(Bucket=destination_bucket, Key=destination_obj)
+        #s3_client.delete_object(Bucket=destination_bucket, Key=destination_obj)
+        pass
     except Exception as e:
       err.append(str(e))
 
