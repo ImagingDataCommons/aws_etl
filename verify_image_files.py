@@ -17,30 +17,40 @@ key_data = pd.read_csv(aws_key_file).iloc[0]
 access_key = key_data['Access key ID']
 secret_key = key_data['Secret access key']
 region='us-east-1'
-#map_bucket='idc-open-data-metadata'
-#map_folder='idc_v14_dev/uuid_url_map_from_view_two/'
-#remap_folder='idc_v14_dev/uuid_url_newmap_two/'
-#img_s3_bucket='idc-open-data-two'
 
-map_bucket='gw-new-test'
-map_folder='map/'
-verify_folder='verify/'
-img_s3_bucket='gw-new-test'
-img_folder='test'
+map_bucket='idc-open-data-metadata'
+map_folder='idc_v14_dev/uuid_url_map_from_view_pub/1/'
+#remap_folder='idc_v14_dev/uuid_url_newmap_two/'
+verify_folder='idc_v14_dev/uuid_url_map_verify_pub/1/'
+img_s3_bucket='idc-open-data'
+img_folder=''
+mode='check'
+
+#map_bucket='gw-new-test'
+#map_folder='map/'
+#verify_folder='verify/'
+#img_s3_bucket='gw-new-test'
+#img_folder='test'
 
 img_path=img_s3_bucket
 if (len(img_folder)>0):
   img_path=img_path+'/'+img_folder
 
 
-num_processes=10
+num_processes=15
 s3_client = boto3.client('s3', region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key)
 s3fs=s3fs.S3FileSystem(anon=False, key=access_key, secret=secret_key)
 
 def logger_worker(log_queue):
-  error_fh = logging.FileHandler('./logs/verify_' + img_s3_bucket + '_err.log')
+  if mode=="check":  
+    error_fh = logging.FileHandler('./logs/check_' + img_s3_bucket + '_err.log')
+  else:
+    error_fh = logging.FileHandler('./logs/verify_' + img_s3_bucket + '_err.log')    
   errlogger.addHandler(error_fh)
-  progress_fh = logging.FileHandler('./logs/verify_' + img_s3_bucket + '_progress.log')
+  if mode=="check":
+    progress_fh = logging.FileHandler('./logs/check_' + img_s3_bucket + '_progress.log')
+  else:
+    progress_fh = logging.FileHandler('./logs/verify_' + img_s3_bucket + '_progress.log')  
   progresslogger.addHandler(progress_fh)
   while True:
     try:
@@ -62,14 +72,17 @@ def verify_some_blobs(nxt_task, log_queue):
   blob_set_nm=nxt_task[0]
   log_queue.put(('progress', 'about to verify files in ' + blob_set_nm + ' at ' + str(datetime.datetime.now())))
   blob_set_filenm=blob_set_nm.rsplit('/',1)[-1]
-  blob_set_report=verify_folder+'verify_'+blob_set_filenm
+  if mode=="check":
+    blob_set_report=verify_folder+'check_'+blob_set_filenm
+  else:  
+    blob_set_report=verify_folder+'verify_'+blob_set_filenm
   blob_num=nxt_task[1]
   uri=f"s3://"+map_bucket+'/'+blob_set_nm
   blob_set = s3_client.get_object(Bucket=map_bucket, Key=blob_set_nm)
   file = blob_set['Body'].read()
   df = pd.read_parquet(io.BytesIO(file))
   df2= df[['uuid','i_hash','pub_aws_bucket','pub_aws_url']].copy()
-  df2['destination_etag'],df2['dest_found']=['' for i in range(2)]
+  df2['etag'],df2['file_found']=['' for i in range(2)]
   numfiles=0
   numerr=0
   for i in range(len(df2.index)):
@@ -80,20 +93,27 @@ def verify_some_blobs(nxt_task, log_queue):
     nm = urlprts[-1]
     series = urlprts[-2]
     dest_bucket=img_s3_bucket
+
     if (len(img_folder)>0):
       dest_obj=img_folder+'/'+series+'/'+nm
+      source_obj= img_folder+'/'+nm
     else:
       dest_obj=series+'/'+nm
+      source_obj=nm
+    if mode=="check":
+      cur_obj=source_obj
+    else:
+      cur_obj=dest_obj  
     try:
-      dest_head=s3_client.head_object(Bucket=dest_bucket, Key=dest_obj)
-      df2.at[i, 'dest_found']='true'
-      df2.at[i, 'destination_etag']=dest_head['ETag'].strip('"')
-      if not (df2.at[i, 'destination_etag']==exp_hash):
-        log_queue.put(('err', 'hash mismatch'))
+      cur_head=s3_client.head_object(Bucket=dest_bucket, Key=cur_obj)
+      df2.at[i, 'file_found']='true'
+      df2.at[i, 'etag']=cur_head['ETag'].strip('"')
+      if not (df2.at[i, 'etag']==exp_hash):
+        log_queue.put(('err', "hash mismatch for file "+cur_obj+", "+series+", "+blob_set_nm+", "+df2.at[i, 'etag']+", "+exp_hash))
         numerr=numerr+1
     except:
-      df2.at[i, 'dest_found'] = 'false'
-      log_queue.put(('err','file '+dest_obj+' not found'))
+      df2.at[i, 'file_found'] = 'false'
+      log_queue.put(('err',"file "+cur_obj+" not found, "+series+", "+blob_set_nm))
       numerr=numerr+1
 
 
@@ -146,12 +166,21 @@ def verify_all_blobs():
 
 
 if __name__ == '__main__':
-  main_fh = logging.FileHandler('./logs/verify_'+img_s3_bucket+'_main.log')
+  if mode=="check":
+    main_fh = logging.FileHandler('./logs/check_'+img_s3_bucket+'_main.log')
+  else:  
+    main_fh = logging.FileHandler('./logs/verify_'+img_s3_bucket+'_main.log')
   mainlogger.addHandler(main_fh)
-  mainlogger.info("Started verify  bucket "+img_s3_bucket+ " with map folder "+map_folder+" at "+str(datetime.datetime.now()))
+  if mode=="check":
+    mainlogger.info("Started checking  bucket "+img_s3_bucket+ " with map folder "+map_folder+" at "+str(datetime.datetime.now()))
+  else:    
+    mainlogger.info("Started verify  bucket "+img_s3_bucket+ " with map folder "+map_folder+" at "+str(datetime.datetime.now()))
 
   verify_all_blobs()
-  mainlogger.info("Finished verifying bucket " + img_s3_bucket + " with map folder " + map_folder + " at " + str(datetime.datetime.now()))
+  if mode=="check":
+    mainlogger.info("Finished checking bucket " + img_s3_bucket + " with map folder " + map_folder + " at " + str(datetime.datetime.now()))
+  else:
+    mainlogger.info("Finished verifying bucket " + img_s3_bucket + " with map folder " + map_folder + " at " + str(datetime.datetime.now()))  
 
 
 
