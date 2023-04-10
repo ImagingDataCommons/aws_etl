@@ -24,11 +24,11 @@ remap_folder='idc_v14_dev/uuid_url_newmap_pub/0/'
 img_s3_bucket='idc-open-data'
 img_folder=''
 
-#map_bucket='gw-new-test'
-#map_folder='map/'
-#remap_folder='map2/'
-#img_s3_bucket='gw-new-test'
-#img_folder='test'
+map_bucket='gw-new-test'
+map_folder='map/'
+remap_folder='map2/'
+img_s3_bucket='gw-new-test'
+img_folder='test'
 
 img_path=img_s3_bucket
 if (len(img_folder)>0):
@@ -96,15 +96,22 @@ def move_some_blobs(nxt_task, log_queue):
       source_obj=nm
       dest_obj=series+'/'+nm
     if (uuid==uuid_in_url) and (exp_bucket == bucket_in_url) and (exp_bucket == img_s3_bucket):
-      ret=move_safe(s3_client, source_bucket, source_obj, dest_bucket, dest_obj, False, exp_hash,True)
-      df2.at[i,'op']=str(ret['op'])
-      df2.at[i,'err'], df2.at[i,'warn'], df2.at[i,'destination_etag'], df2.at[i,'source_etag'], df2.at[i,'copy_ok'] = [ret['err'],ret['warn'],ret['destination_etag'],ret['source_etag'], ret['copy_ok']]
-      if (len(ret['err'])>0):
-        log_queue.put(('err',uuid+":"+ret['err']))
-      if (len(ret['warn'])>0):
-        log_queue.put(('err',uuid+":"+ret['warn']))
+      for attempt in range(3):
+        try:
+          ret=move_safe(s3_client, source_bucket, source_obj, dest_bucket, dest_obj, False, exp_hash,True)
+          df2.at[i,'op']=str(ret['op'])
+          df2.at[i,'err'], df2.at[i,'warn'], df2.at[i,'destination_etag'], df2.at[i,'source_etag'], df2.at[i,'copy_ok'] = [ret['err'],ret['warn'],ret['destination_etag'],ret['source_etag'], ret['copy_ok']]
+          if (len(ret['err'])>0):
+            log_queue.put(('err',uuid+":"+ret['err']))
+          if (len(ret['warn'])>0):
+            log_queue.put(('err',uuid+":"+ret['warn']))
+          break
+        except Exception as e:
+          log_queue.put(('err', uuid + ": attempt " +str(attempt) + ":" + str(e)))
     else:
       log_queue.put(('err', uuid + ":mismatch in bucket or uuid data with src bucket "+img_s3_bucket))
+
+
   cur_buffer = io.BytesIO()
   df2.to_parquet(cur_buffer)
   cur_buffer.seek(0)

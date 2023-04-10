@@ -29,8 +29,8 @@ uri = f"s3://" + map_bucket + '/' + blob_set_nm
 blob_set=s3_client.get_object(Bucket='idc-open-data-metadata', Key='uuid_url_map_from_view_two_0.parquet')
 file = blob_set['Body'].read()
 df = pd.read_parquet(io.BytesIO(file))
-num_imgs_per_part = 200
-num_part = 6
+num_imgs_per_part = 1000
+num_part = 80
 num_rows = len(df.index)
 ransel = random.sample(range(num_rows), num_imgs_per_part * num_part)
 ranselpart = [ransel[i * num_imgs_per_part:(i + 1) * num_imgs_per_part] for i in range(num_part)]
@@ -47,7 +47,8 @@ def copy_bloc(k):
     newurl = urlroot + series + '/' + nm
     df2.at[i, 'pub_aws_url'] = newurl
     dest = img_s3_folder + '/' + nm
-    s3_client.copy_object(Bucket=img_s3_bucket, Key=dest, CopySource={'Bucket': orig_bucket, 'Key': nm})
+    nkey = series + '/' + nm
+    s3_client.copy_object(Bucket=img_s3_bucket, Key=dest, CopySource={'Bucket': orig_bucket, 'Key': nkey})
 
   cur_buffer = io.BytesIO()
   df2.to_parquet(cur_buffer)
