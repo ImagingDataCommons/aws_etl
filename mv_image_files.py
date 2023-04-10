@@ -96,7 +96,6 @@ def move_some_blobs(nxt_task, log_queue):
       dest_obj=series+'/'+nm
     if (uuid==uuid_in_url) and (exp_bucket == bucket_in_url) and (exp_bucket == img_s3_bucket):
       ret=move_safe(s3_client, source_bucket, source_obj, dest_bucket, dest_obj, False, exp_hash,True)
-
       df2.at[i,'op']=str(ret['op'])
       df2.at[i,'err'], df2.at[i,'warn'], df2.at[i,'destination_etag'], df2.at[i,'source_etag'], df2.at[i,'copy_ok'] = [ret['err'],ret['warn'],ret['destination_etag'],ret['source_etag'], ret['copy_ok']]
       if (len(ret['err'])>0):

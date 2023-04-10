@@ -93,7 +93,7 @@ def verify_some_blobs(nxt_task, log_queue):
         numerr=numerr+1
     except:
       df2.at[i, 'dest_found'] = 'false'
-      log_queue.put(('err','file not found'))
+      log_queue.put(('err','file '+dest_obj+' not found'))
       numerr=numerr+1
 
 
