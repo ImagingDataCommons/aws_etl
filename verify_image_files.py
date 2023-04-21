@@ -92,7 +92,7 @@ def verify_some_blobs(nxt_task, log_queue):
   df2= df[['uuid','i_hash','pub_aws_bucket','pub_aws_url']].copy()
   df2['etag'],df2['file_found']=['' for i in range(2)]
   if mode=="final_verify":
-    df2['size'],df2['cksum'],df2['oetag'],df2['ofile_found'],df2['osize'],df2['ocksum']=['' for i in range(6)]
+    df2['size'],df2['oetag'],df2['ofile_found'],df2['osize']=['' for i in range(4)]
   numfiles=0
   numerr=0
   for i in range(len(df2.index)):
@@ -120,8 +120,6 @@ def verify_some_blobs(nxt_task, log_queue):
       df2.at[i, 'etag']=cur_head['ETag'].strip('"')
       if mode=="final_verify":
           df2['size']=cur_head['ContentLength']
-          df2['cksum']=cur_head['ChecksumSHA256']
-
 
       if not (df2.at[i, 'etag']==exp_hash):
         log_queue.put(('err', "hash mismatch for file "+cur_obj+", "+series+", "+blob_set_nm+", "+df2.at[i, 'etag']+", "+exp_hash))
@@ -137,7 +135,7 @@ def verify_some_blobs(nxt_task, log_queue):
         df2.at[i, 'ofile_found']='true'
         df2.at[i, 'oetag']=o_head['ETag'].strip('"')
         df2.at[i, 'osize']=o_head['ContentLength']
-        df2.at[i, 'ocksum']=o_head['ChecksumSHA256']
+
       except:
         df2.at[i, 'ofile_found'] = 'false'
 
