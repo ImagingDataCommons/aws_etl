@@ -19,10 +19,10 @@ secret_key = key_data['Secret access key']
 region='us-east-1'
 
 map_bucket='idc-open-data-metadata'
-map_folder='idc_v14_dev/uuid_url_map_from_view_pub/'
+map_folder='idc_v14_dev/uuid_url_map_from_view_pub/5/'
 #remap_folder='idc_v14_dev/uuid_url_newmap_two/'
-verify_folder='idc_v14_dev/uuid_url_map_verify_pub/'
-final_folder='idc_v14_dev/uuid_url_map_final_pub/'
+verify_folder='idc_v14_dev/uuid_url_map_verify_pub/5/'
+final_folder='idc_v14_dev/uuid_url_map_final_pub/5/'
 img_s3_bucket='idc-open-data'
 img_folder=''
 #mode='check'
@@ -41,7 +41,7 @@ if (len(img_folder)>0):
   img_path=img_path+'/'+img_folder
 
 
-num_processes=1
+num_processes=50
 s3_client = boto3.client('s3', region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key)
 s3fs=s3fs.S3FileSystem(anon=False, key=access_key, secret=secret_key)
 
@@ -92,7 +92,9 @@ def verify_some_blobs(nxt_task, log_queue):
   df2= df[['uuid','i_hash','pub_aws_bucket','pub_aws_url']].copy()
   df2['etag'],df2['file_found']=['' for i in range(2)]
   if mode=="final_verify":
-    df2['size'],df2['oetag'],df2['ofile_found'],df2['osize']=['' for i in range(4)]
+    df2['size']='0'  
+    df2['oetag'],df2['ofile_found']=['' for i in range(2)]
+    df2['osize']='0'
   numfiles=0
   numerr=0
   for i in range(len(df2.index)):
@@ -119,7 +121,7 @@ def verify_some_blobs(nxt_task, log_queue):
       df2.at[i, 'file_found']='true'
       df2.at[i, 'etag']=cur_head['ETag'].strip('"')
       if mode=="final_verify":
-          df2['size']=cur_head['ContentLength']
+          df2['size']=str(cur_head['ContentLength'])
 
       if not (df2.at[i, 'etag']==exp_hash):
         log_queue.put(('err', "hash mismatch for file "+cur_obj+", "+series+", "+blob_set_nm+", "+df2.at[i, 'etag']+", "+exp_hash))
@@ -134,7 +136,7 @@ def verify_some_blobs(nxt_task, log_queue):
         o_head=s3_client.head_object(Bucket=dest_bucket, Key=source_obj)
         df2.at[i, 'ofile_found']='true'
         df2.at[i, 'oetag']=o_head['ETag'].strip('"')
-        df2.at[i, 'osize']=o_head['ContentLength']
+        df2.at[i, 'osize']=str(o_head['ContentLength'])
 
       except:
         df2.at[i, 'ofile_found'] = 'false'
