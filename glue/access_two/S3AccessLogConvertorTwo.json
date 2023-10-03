@@ -1,0 +1,40 @@
+{
+  "name" : "S3AccessLogConvertorTwo",
+  "description" : "Convert and partition S3 Access logs in data-two bucket",
+  "role" : "arn:aws:iam::266665233841:role/service-role/AWSGlueServiceRole-test",
+  "executionProperty" : {
+    "maxConcurrentRuns" : 1
+  },
+  "command" : {
+    "name" : "glueetl",
+    "scriptLocation" : "s3://idc-script-bucket/glue_scripts/s3_access_job.py",
+    "pythonVersion" : "3"
+  },
+  "defaultArguments" : {
+    "--converted_database_name" : "s3_access_logs",
+    "--extra-py-files" : "s3://idc-script-bucket/glue_scripts/athena_glue_service_logs.zip",
+    "--raw_database_name" : "s3_access_logs",
+    "--raw_table_name" : "s3_access_two_raw",
+    "--s3_converted_target" : "s3://idc-open-data-two-logs/conv/",
+    "--enable-job-insights" : "false",
+    "--converted_table_name" : "s3_access_two_conv",
+    "--s3_source_location" : "s3://idc-open-data-two-logs/orig/",
+    "--job-bookmark-option" : "job-bookmark-enable",
+    "--job-language" : "python",
+    "--TempDir" : "s3://idc-etl-temp/tmp"
+  },
+  "maxRetries" : 0,
+  "allocatedCapacity" : 4,
+  "timeout" : 2880,
+  "maxCapacity" : 4.0,
+  "glueVersion" : "4.0",
+  "numberOfWorkers" : 2,
+  "workerType" : "G.2X",
+  "executionClass" : "STANDARD",
+  "sourceControlDetails" : {
+    "provider" : "GITHUB",
+    "repository" : "aws_etl",
+    "branch" : "main",
+    "folder" : "glue/access_two"
+  }
+}
