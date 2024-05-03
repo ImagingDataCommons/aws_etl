@@ -72,9 +72,9 @@ class GroupedDatePartitioner(BasePartitioner):
         # Now check to see if, in each region, that a partition day exists for today.
         # If it does not, backfill up to today.
         today = datetime.utcfromtimestamp(time.time()).date()
-        day_diff = 0
         for key, values in parts_by_group.items():
             # Go back a set number of days for now and only if S3 objects actually exist...
+            day_diff=0
             for _ in range(self.MAX_RECENT_DAYS):
                 new_day = today + timedelta(days=day_diff)
                 new_day_tuple = new_day.strftime('%Y-%m-%d').split('-')
