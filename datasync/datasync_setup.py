@@ -1,41 +1,32 @@
 import boto3
-import pandas as pd
 import requests
 import time
 from functools import reduce
 from operator import concat
+from python_settings import settings
+import settings as etl_settings
+settings.configure(etl_settings)
+assert settings.configured
 
-#import datetime
-#from google.cloud import bigquery
-aws_key_file="../secure_files/aws_key.csv"
-google_key_file="../secure_files/transfer_to_aws_hmac2.csv"
-region='us-east-1'
-my_IPV4 = 'YOUR LOCAL IPV4 HERE'
-my_IPV4 = '73.11.192.177'
-ami_id = 'ami-05f934e162af1c084'
-instance_type = 'm5.4xlarge'
-role_arn = 'arn:aws:iam::266665233841:role/George_DataSync_Role_Block1'
-ec2_key_name='dataSyncEastEc2'
+region = settings.REGION
+my_IPV4 = settings.MY_IPV4
+ami_id = settings.AMI_ID
+instance_type = settings.INSTANCE_TYPE
+role_arn = settings.DS_ROLE_ARN
+ec2_key_name = settings.EC2_KEY_NAME
+ds_name = settings.DS_NAME
+cidr_block = settings.CIDR_BLOCK
 
+aws_access_key_id = settings.DEV_AWS_ACCESS_KEY_ID
+aws_secret_access_key = settings.DEV_AWS_SECRET_ACCESS_KEY
+aws_session_token = settings.DEV_AWS_ACCESS_TOKEN
 
-''' transfer_tasks=[{'localBucket':'idc-open-data','googleBucket':'public-datasets-idc','localSubDir':'','googleSubDir':'', 'localLocationNm':'aws-idc-open-data', 'googleLocationNm':'google-public-datasets-idc',
-                 'googlePublicBucket':True,'logGrpPrefix':'pub', 'logGrpName':'pub-datasync-idc-open'},
-{'localBucket':'idc-open-data-two','googleBucket':'idc-open-idc1', 'localSubDir':'','googleSubDir':'',
- 'localLocationNm':'aws-idc-open-data-two', 'googleLocationNm':'google-idc-open-idc1',
- 'googlePublicBucket':False,'logGrpPrefix':'two', 'logGrpName':'two-datasync-idc-open'},
-{'localBucket':'idc-open-data-cr','googleBucket':'idc-open-cr', 'localSubDir':'','googleSubDir':'',
- 'localLocationNm':'aws-idc-open-cr', 'googleLocationNm':'google-idc-open-cr', 'googlePublicBucket':False,'logGrpPrefix':'cr','logGrpName':'cr-datasync-idc-open'}
-               ] '''
+hmac_access_key_id = settings.HMAC_ACCESS_KEY_ID
+hmac_secret_access_key = settings.HMAC_SECRET_ACCESS_KEY
+vpc_name = settings.VPC_NAME
 
-transfer_tasks=[{'localBucket':'idc-open-data','googleBucket':'public-datasets-idc-staging', 'localSubDir':'','googleSubDir':'',
- 'localLocationNm':'aws-idc-open-data-staging', 'googleLocationNm':'google-idc-open-data-staging',
- 'googlePublicBucket':False,'logGrpPrefix':'pub', 'logGrpName':'pub-datasync-idc-open'}]
+transfer_tasks = settings.TRANSFER_TASKS
 
-'''
-transfer_tasks=[{'localBucket':'idc-open-data-two','googleBucket':'idc-open-idc1', 'localSubDir':'','googleSubDir':'',
- 'localLocationNm':'aws-idc-open-data-two-2', 'googleLocationNm':'google-idc-open-idc1-2',
- 'googlePublicBucket':False,'logGrpPrefix':'two', 'logGrpName':'two-datasync-idc-open'}]
-'''
 def createVPC(ec2_resource,ec2_client,cidr_block,my_IPv4,service_name, vpc_name):
   vpc = ec2_resource.create_vpc(CidrBlock=cidr_block)
   vpc.create_tags(Tags=[{"Key": "Name", "Value": vpc_name}])
@@ -60,7 +51,7 @@ def createVPC(ec2_resource,ec2_client,cidr_block,my_IPv4,service_name, vpc_name)
   #secGroup.authorize_egress(IpPermissions=ipPermissions)
   vpc_pt = ec2_client.create_vpc_endpoint(VpcEndpointType='Interface', VpcId=vpc.id, ServiceName=service_name,SubnetIds=[subnet.id], SecurityGroupIds=[sec_group.id], PrivateDnsEnabled=False)
 
-def createDataSyncEc2(ec2_client,ec2_resource,ami_id, instance_type, ec2_key_name):
+def createDataSyncEc2(ec2_client,ec2_resource,ami_id, instance_type):
   vpc_filt = [{'Name': 'tag:Name', 'Values': ['ds_vpc']}]
   vpc_desc = ec2_client.describe_vpcs(Filters=vpc_filt)
   vpc_id = vpc_desc['Vpcs'][0]['VpcId']
@@ -87,12 +78,12 @@ def createDataSyncEc2(ec2_client,ec2_resource,ami_id, instance_type, ec2_key_nam
                           'ResourceType': 'instance',
                            'Tags': [{
                               'Key': 'Name',
-                              'Value': 'dataSyncEc'
+                              'Value': ec2_key_name
                             }],
                         }
                       ]
 
-  instances=ec2_resource.create_instances(KeyName=ec2_key_name, MinCount=1, MaxCount=1, ImageId=ami_id, InstanceType=instance_type, NetworkInterfaces=net_int, TagSpecifications=tag_specifications)
+  instances=ec2_resource.create_instances(MinCount=1, MaxCount=1, ImageId=ami_id, InstanceType=instance_type, NetworkInterfaces=net_int, TagSpecifications=tag_specifications)
   return instances
 
 def createAgent(ec2_client, ds_client,region):
@@ -116,7 +107,7 @@ def createAgent(ec2_client, ds_client,region):
 
 
   #ec2Filt = [{'Name': 'vpc-id', 'Values': [vpcId]},{'Name':'instance-state-name','Values':['running']}, {'Name':'tag:Name', 'Values':['datasync-google2']}]
-  ec2_filt = [{'Name': 'vpc-id', 'Values': [vpc_id]}, {'Name':'instance-state-name','Values':['pending','running']},{'Name':'tag:Name', 'Values':['dataSyncEc']}]
+  ec2_filt = [{'Name': 'vpc-id', 'Values': [vpc_id]}, {'Name':'instance-state-name','Values':['pending','running']},{'Name':'tag:Name', 'Values':[ec2_key_name]}]
 
   state='pending'
   while state !='running':
@@ -143,7 +134,7 @@ def createAgent(ec2_client, ds_client,region):
   arnRoot=subnet_arn.rsplit(':',1)[0]
   sub_grp_arn=arnRoot+':security-group/'+sec_grp_id
   tags=[{'Key':'tag:Name', 'Value':'googleAgent' } ]
-  agent_desc=ds_client.create_agent(AgentName='ds_idc',ActivationKey=actKey,VpcEndpointId=end_pt_id, SubnetArns=[subnet_arn], SecurityGroupArns=[sub_grp_arn])
+  agent_desc=ds_client.create_agent(AgentName=ds_name,ActivationKey=actKey,VpcEndpointId=end_pt_id, SubnetArns=[subnet_arn], SecurityGroupArns=[sub_grp_arn])
   return agent_desc['AgentArn']
 
 def createLocalLocation(ds_client,role_arn, bucket, sub_dir, local_location_nm):
@@ -170,15 +161,14 @@ def createCloudWatchLogGroup(lg_client, log_name):
   cgrp_arn=get_grps['logGroups'][0]['arn']
   return cgrp_arn
 
-def createDataSyncTask(ds_client, local_loc_arn, google_loc_arn, cgrp_arn, trans_mode, verify_mode):
-  options = {'VerifyMode': verify_mode, 'OverwriteMode': 'ALWAYS', 'TransferMode':trans_mode}
+def createDataSyncTask(ds_client, local_loc_arn, google_loc_arn, cgrp_arn, trans_mode, verify_mode, nm):
+  options = {'VerifyMode': verify_mode, 'OverwriteMode': 'ALWAYS', 'TransferMode':trans_mode, 'PreserveDeletedFiles':'PRESERVE', 'ObjectTags':'NONE'}
   task=ds_client.create_task(SourceLocationArn=google_loc_arn, DestinationLocationArn=local_loc_arn, CloudWatchLogGroupArn=cgrp_arn,
-                                Options=options)
+                                Options=options, Name=nm)
   return task['TaskArn']
 
 def runTask(ds_client, task_arn):
   ds_client.start_task_execution(TaskArn=task_arn)
-
 
 def deleteVpc(ec2_client,vpc_name):
   vpc_filt = [{'Name': 'tag:Name', 'Values': [vpc_name]}]
@@ -238,7 +228,6 @@ def deleteVpc(ec2_client,vpc_name):
 
     ec2_client.delete_vpc(VpcId=vpc_id)
 
-
 def findStorageLocationArn(ds_client,bucket,sub_dir,type):
   sel_arn=''
   tim=None
@@ -288,57 +277,34 @@ def clearDataSync(ds_client):
 
 
 if __name__=="__main__":
-  key_data=pd.read_csv(aws_key_file).iloc[0]
-  access_key = key_data['Access key ID']
-  secret_key = key_data['Secret access key']
-  google_key_data=pd.read_csv(google_key_file).iloc[0]
-  google_access_key = google_key_data['Access key ID']
-  google_secret_key = google_key_data['Secret access key']
 
-
-  cidr_block='172.16.0.0/16'
   service_name='com.amazonaws.'+region+'.datasync'
-  ec2_resource = boto3.resource('ec2', region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key)
-  ec2_client =  boto3.client('ec2', region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key)
-  ds_client = boto3.client('datasync', region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key)
-  lg_client = boto3.client('logs', region_name=region, aws_access_key_id=access_key,aws_secret_access_key=secret_key)
+  ec2_resource = boto3.resource('ec2', region_name=region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, aws_session_token=aws_session_token)
+  ec2_client =  boto3.client('ec2', region_name=region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, aws_session_token=aws_session_token)
+  ds_client = boto3.client('datasync', region_name=region, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, aws_session_token=aws_session_token)
+  lg_client = boto3.client('logs', region_name=region, aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key,aws_session_token=aws_session_token)
 
-  #s3 =boto3.resource('s3')
-  #bucket=s3.Bucket('idc-open-data-metadata')
+  #createDataSyncEc2(ec2_client, ec2_resource, ami_id, instance_type)
+  #agent_arn = createAgent(ec2_client, ds_client, region)
+  agent_arn = 'arn:aws:datasync:us-east-1:266665233841:agent/agent-0aa01c686d7526c8e'
 
-
-  vpc_name = "ds_vpc"
-
-  #filters=[{'Name':['name'], 'Values':['*datasync*']}, {'Name':['is-public'], 'Values':[True]}]
-  #filters = [{'Name': 'name', 'Values': ['*datasync*']}, {'Name': 'state', 'Values': ['available']}]
-  #filters = [{'Name': 'is-public', 'Values': [True]}]
-  #amiList = ec2_client.describe_images(Filters=filters, Owners=['amazon'])['Images']
-
-  #createVPC(ec2_resource,ec2_client,cidr_block, my_IPV4, service_name, vpc_name)
-  createDataSyncEc2(ec2_client, ec2_resource, ami_id, instance_type, ec2_key_name)
-  agent_arn = createAgent(ec2_client, ds_client, region)
-  #agent_arn='arn:aws:datasync:us-east-1:266665233841:agent/agent-0091ea5f5c0cf0978'
   for task in transfer_tasks:
 
-    
+    nm=task['taskname']
     local_bucket=task['localBucket']
-
     local_sub_dir=task['localSubDir']
     local_location_name=task['localLocationNm']
-    #local_loc_arn=findStorageLocationArn(ds_client,local_bucket,local_sub_dir,'local')
-    #if (len(local_loc_arn)==0):
     local_loc_arn=createLocalLocation(ds_client, role_arn,local_bucket, local_sub_dir, local_location_name)
 
     google_bucket = task['googleBucket']
     google_sub_dir = task['googleSubDir']
     google_location_name = task['googleLocationNm']
     public_bucket =task['googlePublicBucket']
-    #google_loc_arn=findStorageLocationArn(ds_client,google_bucket,google_sub_dir,'Object_storage')
-    #if (len(google_loc_arn)==0):
+
     if public_bucket:
       google_loc_arn = createGoogleLocation(ds_client, google_bucket, google_sub_dir, None, None, google_location_name, agent_arn)
     else:
-      google_loc_arn=createGoogleLocation(ds_client, google_bucket, google_sub_dir, google_access_key, google_secret_key, google_location_name, agent_arn)
+      google_loc_arn=createGoogleLocation(ds_client, google_bucket, google_sub_dir, hmac_access_key_id, hmac_secret_access_key, google_location_name, agent_arn)
 
     cgrp_arn=''
     log_prefix=task['logGrpPrefix']
@@ -350,7 +316,4 @@ if __name__=="__main__":
       cgrp_arn = get_grps['logGroups'][0]['arn']
     verify_mode='ONLY_FILES_TRANSFERRED'
     trans_mode='CHANGED'
-    taskArn=createDataSyncTask(ds_client, local_loc_arn, google_loc_arn, cgrp_arn, trans_mode, verify_mode)
-
-
-
+    taskArn = createDataSyncTask(ds_client, local_loc_arn, google_loc_arn, cgrp_arn, trans_mode, verify_mode, nm)
