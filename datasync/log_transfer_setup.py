@@ -30,6 +30,7 @@ transfer_tasks=[{'localBucket':'aws-cloudtrail-logs-266665233841-996bfd04','goog
                  'googleSubDir':'','localLocationNm':'aws_tst', 'googleLocationNm':'google_tst',
  'googlePublicBucket':False,'logGrpPrefix':'2666', 'logGrpName':'2666-cloudtrail'}]
 
+# must provide name of datasync VM and agent ARN. Can get these from console.
 
 ec2_key_name='DataSync_for_Logs'
 agent_arn='arn:aws:datasync:us-east-1:266665233841:agent/agent-0b6e21d6e55f34611'
