@@ -14,6 +14,7 @@ VM_FILTER = [{'Name':'tag:Name', 'Values':['DataSync_for_Logs']}]
 ec='DataSync_for_Logs'
 WAIT_MAX_20 = (20 * 60)
 WAIT_MAX_10 = (10 * 60)
+WAIT_MAX_10 = (60 * 60)
 WAIT_VM_INT = 30
 WAIT_TASK_INT = 60
 WAIT_BTW_TASK_INT = 30
@@ -57,14 +58,15 @@ if __name__=="__main__":
       ds_client.start_task_execution(TaskArn=task['TaskArn'])
       wait = 0
       is_avail = False
-      while wait < WAIT_MAX_20 and not is_avail:
+      while wait < WAIT_MAX_60 and not is_avail:
         time.sleep(WAIT_TASK_INT)
         cur_desc=ds_client.describe_task(TaskArn=task['TaskArn'])
         is_avail =  bool(cur_desc['Status']=='AVAILABLE')
         wait = wait+WAIT_TASK_INT
       if not is_avail:
-        # Task unavailable after 20 minutes - it might be stuck
-        logger.error("[STATUS] Task {} didn't complete in the time alotted.".format(task.get('Name',None)))
+        # Task unavailable after 60 minutes - it might be stuck
+        logger.error("[STATUS] Task {} didn't become available in the time alotted ({} minutes) - possibly incomplete.".format(task.get('Name',None),str(WAIT_MAX_60/60)))
+        task_result[task.get('Name',None)] = 'over time' 
       else:
         task_result[task.get('Name',None)] = 'complete'                     
     else:
