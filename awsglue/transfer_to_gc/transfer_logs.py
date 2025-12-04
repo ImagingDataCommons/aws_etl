@@ -35,7 +35,7 @@ if __name__=="__main__":
 
   if is_stopped:
     # Unable to start the instance in 20 minutes--something might be wrong
-    logger.error("[ERROR] Unable to start instance in 20 minutes! Exiting.")
+    logger.error("[ERROR] Unable to start instance in {} minutes! Exiting.".format(str(WAIT_MAX_20/60))
     exit(1)
 
   logger.info("[STATUS] EC2 instance started.")
@@ -71,8 +71,7 @@ if __name__=="__main__":
         task_result[task.get('Name',None)] = 'complete'                     
     else:
       # Task never became available!
-      logger.error("[STATUS] Task {} never became available--skipping.".format(task.get('Name',None))
-      pass
+      logger.error("[STATUS] Task {} never became available after {} minutes--skipping.".format(task.get('Name',None),str(WAIT_MAX_10/60)))
     time.sleep(WAIT_BTW_TASK_INT)
 
   logger.info("[STATUS] Final task dispositions: ")
