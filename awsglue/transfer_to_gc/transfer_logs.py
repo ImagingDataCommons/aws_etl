@@ -1,12 +1,11 @@
 import boto3
 import time
 import pprint
-from awsglue.context import GlueContext
-from pyspark.context import SparkContext
+import logging
 
-sc = SparkContext()
-glueContext = GlueContext(sc)
-logger = glueContext.get_logger()
+logging.basicConfig()
+logging.getLogger().setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 
 region='us-east-1'
 ds_client = boto3.client('datasync', region_name=region)
