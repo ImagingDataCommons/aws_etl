@@ -11,7 +11,7 @@ region='us-east-1'
 ds_client = boto3.client('datasync', region_name=region)
 ec2_client = boto3.client('ec2', region_name=region)
 r=1
-task_list = {'aws_pub_logs_to_google','aws_cr_logs_to_google','aws_two_logs_to_google'}
+task_list = ['aws_pub_logs_to_google','aws_cr_logs_to_google','aws_two_logs_to_google']
 VM_FILTER = [{'Name':'tag:Name', 'Values':['DataSync_for_Logs']}]
 ec='DataSync_for_Logs'
 WAIT_MAX_20 = (20 * 60)
@@ -85,6 +85,6 @@ if __name__=="__main__":
     time.sleep(WAIT_BTW_TASK_INT)
 
   logger.info("[STATUS] Final task dispositions: ")
-  logger.info(pprint.pp(task_result,width=10))
+  logger.info(pprint.pformat(task_result,width=10))
   
   ec2_client.stop_instances(InstanceIds=[instanceId])
