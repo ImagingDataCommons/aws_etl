@@ -1,9 +1,12 @@
 import boto3
 import time
-import logging
 import pprint
+from awsglue.context import GlueContext
+from pyspark.context import SparkContext
 
-logger = logging.getLogger(__name__)
+sc = SparkContext()
+glueContext = GlueContext(sc)
+logger = glueContext.get_logger()
 
 region='us-east-1'
 ds_client = boto3.client('datasync', region_name=region)
@@ -35,7 +38,7 @@ if __name__=="__main__":
 
   if is_stopped:
     # Unable to start the instance in 20 minutes--something might be wrong
-    logger.error("[ERROR] Unable to start instance in {} minutes! Exiting.".format(str(WAIT_MAX_20/60))
+    logger.error("[ERROR] Unable to start instance in {} minutes! Exiting.".format(str(WAIT_MAX_20/60)))
     exit(1)
 
   logger.info("[STATUS] EC2 instance started.")
