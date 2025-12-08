@@ -51,6 +51,7 @@ if __name__=="__main__":
   task_result = {tsk.get('Name',None): 'incomplete' for tsk in tasks}
   for task in tasks:
     start_time = time.time()
+    task_name = task.get('Name',None)
     wait = 0
     task_desc=ds_client.describe_task(TaskArn=task['TaskArn'])
     is_unavail = bool(task_desc['Status'] == 'UNAVAILABLE')
@@ -61,6 +62,7 @@ if __name__=="__main__":
       is_unavail = bool(task_desc['Status'] == 'UNAVAILABLE')
 
     if (task_desc['Status'] == 'AVAILABLE'):
+      logger.info("[STATUS] Task {} execution beginning.".format(task_name))
       ds_client.start_task_execution(TaskArn=task['TaskArn'])
       wait = 0
       is_avail = False
@@ -72,14 +74,14 @@ if __name__=="__main__":
       stop_time = time.time()
       if not is_avail:
         # Task unavailable after 60 minutes - it might be stuck
-        logger.error("[STATUS] Task {} didn't become available in the time alotted ({} minutes) - possibly incomplete.".format(task.get('Name',None),str(WAIT_MAX_60/60)))
-        task_result[task.get('Name',None)] = 'over time' 
+        logger.error("[STATUS] Task {} didn't become available in the time alotted ({} minutes) - possibly incomplete.".format(task_name,str(WAIT_MAX_60/60)))
+        task_result[task_name] = 'over time'
       else:
-        task_result[task.get('Name',None)] = 'complete'
-        logger.info("[STATUS] Task {} completed in {}s.".format(task.get('Name',None), str(stop_time-start_time)))
+        task_result[task_name] = 'complete'
+        logger.info("[STATUS] Task {} completed in {}s.".format(task_name, str(stop_time-start_time)))
     else:
       # Task never became available!
-      logger.error("[STATUS] Task {} never became available after {} minutes--skipping.".format(task.get('Name',None),str(WAIT_MAX_10/60)))
+      logger.error("[STATUS] Task {} never became available after {} minutes--skipping.".format(task_name,str(WAIT_MAX_10/60)))
     time.sleep(WAIT_BTW_TASK_INT)
 
   logger.info("[STATUS] Final task dispositions: ")
